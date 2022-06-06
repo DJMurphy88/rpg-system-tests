@@ -1,54 +1,50 @@
-import pygame.image
-import numpy as np
+import pygame
+from pygame.locals import *
+import pytmx
 
-# Tileset class, loads tileset from file, divides it into tiles,
-# and populates a list with the tiles
-class Tileset:
-    def __init__(self, file, size=(32, 32), margin=1, spacing=1):
-        self.file = file
-        self.size = size
-        self.margin = margin
-        self.spacing = spacing
+FILE = "Data/Grass_v1.png"
 
-        self.image = pygame.image.load(file)
+class Level:
+    def __init__(self, map_file):
+        self.map_object = pytmx.load_pygame(map_file)
+        self.layers = []
+        self.level_shift = [0, 0]
+
+        for layer in range(len(self.map_object.layers)):
+            self.layers.append(Layer(index=layer, map_object=self.map_object))
+
+    def shift_map(self, x, y):
+        self.level_shift[0] += x
+        self.level_shift[1] += y
+
+        for layer in self.layers:
+            for tile in layer.tiles:
+                tile.rect.x += x
+                tile.rect.y += y
+
+    def draw(self, screen):
+        for layer in self.layers:
+            layer.draw(screen)
+
+class Layer:
+    def __init__(self, index, map_object):
+        self.index = index
+        self.tiles = pygame.sprite.Group()
+        self.map_object = map_object
+
+        for x in range(self.map_object.width):
+            for y in range(self.map_object.height):
+                img = self.map_object.get_tile_image(x, y, self.index)
+                if img:
+                    self.tiles.add(Tile(img, (x * self.map_object.tilewidth), (y * self.map_object.tileheight)))
+
+    def draw(self, screen):
+        self.tiles.draw(screen)
+
+class Tile(pygame.sprite.Sprite):
+    def __init__(self, image, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = image
         self.rect = self.image.get_rect()
-        self.tiles = []
-        self.load()
-
-    def load(self):
-        self.tiles = []
-        x0 = y0 = self.margin
-        w, h = self.rect.size
-        dx = self.size[0] + self.spacing
-        dy = self.size[1] + self.spacing
-
-        for x in range(x0, w, dx):
-            for y in range(y0, h, dy):
-                tile = pygame.Surface(self.size)
-                tile.blit(self.image, (0, 0), (x, y, *self.size))
-
-    def __str__(self):
-        return f'{self.__class__.__name__} file:{self.file} tile:{self.size}'
-
-class Tilemap:
-    def __init__(self, tileset, size=(10, 20), rect=None):
-        self.tileset = tileset
-        self.size = size
-        self.map = np.zeros(size, dtype=int)
-
-        h, w = self.size
-        self.image = pygame.Surface((32*w, 32*h))
-        if rect:
-            self.rect = pygame.Rect(rect)
-        else:
-            self.rect = self.image.get_rect()
-
-    def render(self):
-        m, n = self.map.shape
-        for i in range(m):
-            for j in range(n):
-                tile = self.tileset.tiles[self.map[i, j]]
-                self.image.blit(tile, (j*32, i*32))
-
-    def __str__(self):
-        return f'{self.__class__.__name__} {self.size}'
+        self.rect.x = x
+        self.rect.y = y
